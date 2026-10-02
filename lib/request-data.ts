@@ -14,8 +14,18 @@ function headers() {
   return {
     apikey: supabaseKey ?? '',
     Authorization: `Bearer ${supabaseKey ?? ''}`,
+    Accept: 'application/json',
     'Content-Type': 'application/json',
+    'Content-Profile': 'public',
+    'Accept-Profile': 'public',
   }
+}
+
+async function throwSupabaseError(response: Response, fallback: string) {
+  if (response.ok) return
+  const detail = await response.text().catch(() => '')
+  console.error('[v0] Supabase request failed:', response.status, detail)
+  throw new Error(fallback)
 }
 
 function endpoint(path = '') {
@@ -31,10 +41,10 @@ export async function createRequest(input: Pick<RequestRecord, 'name' | 'details
       request_date: input.date,
       submitted_by: input.name,
       description: input.details,
-      status: 'Submitted',
+      status: 'Pending',
     }),
   })
-  if (!response.ok) throw new Error('Unable to submit request.')
+  await throwSupabaseError(response, 'Unable to submit request.')
 }
 
 export async function listRequests() {
@@ -42,7 +52,7 @@ export async function listRequests() {
     headers: headers(),
     cache: 'no-store',
   })
-  if (!response.ok) throw new Error('Unable to load requests.')
+  await throwSupabaseError(response, 'Unable to load requests.')
 
   const rows = (await response.json()) as Array<{
     id: string
@@ -69,5 +79,5 @@ export async function updateRequestStatus(id: string, status: string) {
     headers: { ...headers(), Prefer: 'return=minimal' },
     body: JSON.stringify({ status }),
   })
-  if (!response.ok) throw new Error('Unable to update request status.')
+  await throwSupabaseError(response, 'Unable to update request status.')
 }
